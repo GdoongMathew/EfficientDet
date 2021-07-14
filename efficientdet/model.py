@@ -5,13 +5,26 @@ from tensorflow.keras.layers import Conv2D
 from tensorflow.keras.layers import Conv2DTranspose
 from tensorflow.keras.layers import UpSampling2D
 from tensorflow.keras.layers import Activation
-from tensorflow.keras.layers import Add
+from tensorflow.keras.layers import MaxPooling2D
 from tensorflow.keras.layers import BatchNormalization
 from tensorflow.keras.layers import SeparableConv2D
+from tensorflow.keras.layers import Concatenate
+from tensorflow.keras import Model
 from tensorflow.python.keras.utils import tf_utils
 from collections import namedtuple
 
-_efficientdet_config = namedtuple('EfficienDet_Config', ('Backbone', 'WiFPN_W', 'WiFPN_D'))
+config = namedtuple('Config', ('Backbone', 'BiFPN_W', 'BiFPN_D'))
+
+_efficientdet_config = {
+    'EfficientDetD0': config('EfficientNetB0', 64, 3),
+    'EfficientDetD1': config('EfficientNetB1', 88, 4),
+    'EfficientDetD2': config('EfficientNetB2', 112, 5),
+    'EfficientDetD3': config('EfficientNetB3', 160, 6),
+    'EfficientDetD4': config('EfficientNetB4', 224, 7),
+    'EfficientDetD5': config('EfficientNetB5', 288, 7),
+    'EfficientDetD6': config('EfficientNetB6', 384, 8),
+    'EfficientDetD7': config('EfficientNetB7', 384, 8),
+}
 
 
 class WFF(SeparableConv2D):
@@ -64,5 +77,91 @@ class WFF(SeparableConv2D):
         return {**config, 'epsilon': self.epsilon}
 
 
+def bifpn_network(features, num_channels, activation='swish'):
+    features = sorted(features, key=lambda x: x.shape[2])
+    num_feature = len(features)
+    prev_feature = None
+    output_layers_input = []
+
+    for i, feature in enumerate(features):
+        if i == 0:
+            prev_feature = UpSampling2D(2, interpolation='bilinear')(feature)
+            output_layers_input.append([feature])
+            continue
+        td_layer = WFF(num_channels, 3, strides=1, padding='same')([prev_feature, feature])
+        td_layer = BatchNormalization()(td_layer)
+        td_layer = Activation(activation=activation)(td_layer)
+
+        if i < num_feature - 1:
+            output_layers_input.append([td_layer, feature])
+            prev_feature = UpSampling2D(2, interpolation='bilinear')(td_layer)
+
+    outputs = [td_layer]
+    output = MaxPooling2D(3, strides=2, padding='same')(td_layer)
+    for i, output_in in enumerate(output_layers_input[::-1]):
+        output = WFF(num_channels, 3, strides=1, padding='same')([*output_in, output])
+        output = BatchNormalization()(output)
+        output = Activation(activation=activation)(output)
+        outputs.insert(0, output)
+        if i != len(output_layers_input) - 1:
+            output = MaxPooling2D(3, strides=2, padding='same')(output)
+    return outputs
 
 
+def segmentation_head(features, num_filters, num_class, activation='swish'):
+    features = list(reversed(features))
+    x = features[0]
+    for feature in features[0:]:
+        x = Conv2DTranspose(num_filters, 3, strides=2, padding='same')(x)
+        x = BatchNormalization()(x)
+        x = Activation(activation=activation)(x)
+        x = Concatenate()([x, feature])
+
+    x = Conv2DTranspose(num_class, 3, strides=2, padding='same')(x)
+    return x
+
+
+def EfficientDet(model_name,
+                 input_shape=(1024, 1024, 3),
+                 classes=1000,
+                 weights=None,
+                 activation='swish'):
+    _imagenet_weight = weights if weights == 'imagenet' else None
+    _config = _efficientdet_config[model_name]
+
+    input_x = Input(shape=input_shape)
+    backbone_net = efn.__getattribute__(_config.Backbone)(input_tensor=input_x,
+                                                          input_shape=input_shape,
+                                                          include_top=False,
+                                                          weights=_imagenet_weight)
+
+    # reset channels
+    p3 = backbone_net.get_layer('block3d_add').output
+    p3 = Conv2D(_config.BiFPN_W, 1, padding='same')(p3)
+    p3 = BatchNormalization()(p3)
+
+    p4 = backbone_net.get_layer('block5f_add').output
+    p4 = Conv2D(_config.BiFPN_W, 1, padding='same')(p4)
+    p4 = BatchNormalization()(p4)
+
+    p5 = backbone_net.get_layer('block7b_add').output
+    p5 = Conv2D(_config.BiFPN_W, 1, padding='same')(p5)
+    p5 = BatchNormalization()(p5)
+
+    p6 = MaxPooling2D(3, strides=2, padding='same')(p5)
+    p7 = MaxPooling2D(3, strides=2, padding='same')(p6)
+
+    p_layers = [p3, p4, p5, p6, p7]
+    for _ in range(_config.BiFPN_D):
+        p_layers = bifpn_network(p_layers, _config.BiFPN_W)
+
+    x = segmentation_head(p_layers, _config.BiFPN_W, classes)
+
+    model = Model(inputs=input_x, outputs=x)
+    if weights and weights != 'imagenet':
+        model.load_weights(weights)
+
+    return model
+
+if __name__ == '__main__':
+    EfficientDet('EfficientDetD4').summary()
