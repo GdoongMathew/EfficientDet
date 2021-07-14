@@ -23,7 +23,8 @@ _efficientdet_config = {
     'EfficientDetD4': config('EfficientNetB4', 224, 7),
     'EfficientDetD5': config('EfficientNetB5', 288, 7),
     'EfficientDetD6': config('EfficientNetB6', 384, 8),
-    'EfficientDetD7': config('EfficientNetB7', 384, 8),
+    'EfficientDetD7': config('EfficientNetB6', 384, 8),
+    'EfficientDetD7x': config('EfficientNetB7', 384, 8),
 }
 
 
@@ -31,6 +32,7 @@ class WFF(SeparableConv2D):
     """
     Weighted Feature Fusion
     """
+
     def __init__(self, filters, kernel_size, epsilon=tf.keras.backend.epsilon(), *args, **kwargs):
         self.epsilon = epsilon
         super(WFF, self).__init__(filters, kernel_size, *args, **kwargs)
@@ -54,7 +56,7 @@ class WFF(SeparableConv2D):
 
         num_input = len(input_shape)
         self.w = self.add_weight(name=self.name,
-                                 shape=(num_input, ),
+                                 shape=(num_input,),
                                  initializer=tf.keras.initializers.constant(1 / num_input),
                                  trainable=True,
                                  dtype=tf.float32)
@@ -124,7 +126,8 @@ def EfficientDet(model_name,
                  input_shape=(1024, 1024, 3),
                  classes=1000,
                  weights=None,
-                 activation='swish'):
+                 activation='swish',
+                 use_p8=False):
     _imagenet_weight = weights if weights == 'imagenet' else None
     _config = _efficientdet_config[model_name]
 
@@ -151,10 +154,13 @@ def EfficientDet(model_name,
     p7 = MaxPooling2D(3, strides=2, padding='same')(p6)
 
     p_layers = [p3, p4, p5, p6, p7]
-    for _ in range(_config.BiFPN_D):
-        p_layers = bifpn_network(p_layers, _config.BiFPN_W)
+    if use_p8:
+        p_layers.append(MaxPooling2D(3, strides=2, padding='same')(p7))
 
-    x = segmentation_head(p_layers, _config.BiFPN_W, classes)
+    for _ in range(_config.BiFPN_D):
+        p_layers = bifpn_network(p_layers, _config.BiFPN_W, activation=activation)
+
+    x = segmentation_head(p_layers, _config.BiFPN_W, classes, activation=activation)
     x = UpSampling2D(4, interpolation='bilinear')(x)
     x = Activation('softmax')(x)
 
@@ -164,5 +170,101 @@ def EfficientDet(model_name,
 
     return model
 
-if __name__ == '__main__':
-    EfficientDet('EfficientDetD4').summary()
+
+def EfficientDetD0(input_shape=(512, 512, 3),
+                   classes=1000,
+                   weights=None,
+                   **kwargs):
+    return EfficientDet('EfficientDetD0',
+                        input_shape=input_shape,
+                        classes=classes,
+                        weights=weights,
+                        **kwargs)
+
+
+def EfficientDetD1(input_shape=(512, 512, 3),
+                   classes=1000,
+                   weights=None,
+                   **kwargs):
+    return EfficientDet('EfficientDetD1',
+                        input_shape=input_shape,
+                        classes=classes,
+                        weights=weights,
+                        **kwargs)
+
+
+def EfficientDetD2(input_shape=(512, 512, 3),
+                   classes=1000,
+                   weights=None,
+                   **kwargs):
+    return EfficientDet('EfficientDetD2',
+                        input_shape=input_shape,
+                        classes=classes,
+                        weights=weights,
+                        **kwargs)
+
+
+def EfficientDetD3(input_shape=(512, 512, 3),
+                   classes=1000,
+                   weights=None,
+                   **kwargs):
+    return EfficientDet('EfficientDetD3',
+                        input_shape=input_shape,
+                        classes=classes,
+                        weights=weights,
+                        **kwargs)
+
+
+def EfficientDetD4(input_shape=(512, 512, 3),
+                   classes=1000,
+                   weights=None,
+                   **kwargs):
+    return EfficientDet('EfficientDetD4',
+                        input_shape=input_shape,
+                        classes=classes,
+                        weights=weights,
+                        **kwargs)
+
+
+def EfficientDetD5(input_shape=(512, 512, 3),
+                   classes=1000,
+                   weights=None,
+                   **kwargs):
+    return EfficientDet('EfficientDetD5',
+                        input_shape=input_shape,
+                        classes=classes,
+                        weights=weights,
+                        **kwargs)
+
+
+def EfficientDetD6(input_shape=(512, 512, 3),
+                   classes=1000,
+                   weights=None,
+                   **kwargs):
+    return EfficientDet('EfficientDetD6',
+                        input_shape=input_shape,
+                        classes=classes,
+                        weights=weights,
+                        **kwargs)
+
+
+def EfficientDetD7(input_shape=(512, 512, 3),
+                   classes=1000,
+                   weights=None,
+                   **kwargs):
+    return EfficientDet('EfficientDetD7',
+                        input_shape=input_shape,
+                        classes=classes,
+                        weights=weights,
+                        **kwargs)
+
+
+def EfficientDetD7x(input_shape=(512, 512, 3),
+                    classes=1000,
+                    weights=None,
+                    **kwargs):
+    return EfficientDet('EfficientDetD7x',
+                        input_shape=input_shape,
+                        classes=classes,
+                        weights=weights,
+                        **kwargs)
