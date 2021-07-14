@@ -109,9 +109,8 @@ def bifpn_network(features, num_channels, activation='swish'):
 
 
 def segmentation_head(features, num_filters, num_class, activation='swish'):
-    features = list(reversed(features))
     x = features[0]
-    for feature in features[0:]:
+    for feature in features[1:]:
         x = Conv2DTranspose(num_filters, 3, strides=2, padding='same')(x)
         x = BatchNormalization()(x)
         x = Activation(activation=activation)(x)
@@ -156,6 +155,8 @@ def EfficientDet(model_name,
         p_layers = bifpn_network(p_layers, _config.BiFPN_W)
 
     x = segmentation_head(p_layers, _config.BiFPN_W, classes)
+    x = UpSampling2D(4, interpolation='bilinear')(x)
+    x = Activation('softmax')(x)
 
     model = Model(inputs=input_x, outputs=x)
     if weights and weights != 'imagenet':
