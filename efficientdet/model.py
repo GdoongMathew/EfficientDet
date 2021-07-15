@@ -110,7 +110,7 @@ def bifpn_network(features, num_channels, activation='swish'):
     return outputs
 
 
-def segmentation_head(features, num_filters, num_class, activation='swish'):
+def segmentation_head(features, num_filters, activation='swish'):
     x = features[0]
     for feature in features[1:]:
         x = Conv2DTranspose(num_filters, 3, strides=2, padding='same')(x)
@@ -118,7 +118,9 @@ def segmentation_head(features, num_filters, num_class, activation='swish'):
         x = Activation(activation=activation)(x)
         x = Concatenate()([x, feature])
 
-    x = Conv2DTranspose(num_class, 3, strides=2, padding='same')(x)
+    x = Conv2DTranspose(num_filters, 3, strides=2, padding='same')(x)
+    x = BatchNormalization()(x)
+    x = Activation(activation=activation)(x)
     return x
 
 
@@ -160,7 +162,9 @@ def EfficientDet(model_name,
     for _ in range(_config.BiFPN_D):
         p_layers = bifpn_network(p_layers, _config.BiFPN_W, activation=activation)
 
-    x = segmentation_head(p_layers, _config.BiFPN_W, classes, activation=activation)
+    x = segmentation_head(p_layers, _config.BiFPN_W, activation=activation)
+
+    x = Conv2D(classes, 1, padding='same')(x)
     x = UpSampling2D(4, interpolation='bilinear')(x)
     x = Activation('softmax')(x)
 
