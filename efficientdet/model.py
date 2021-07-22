@@ -56,7 +56,7 @@ class WFF(SeparableConv2D):
 
         num_input = len(input_shape)
         self.w = self.add_weight(name=self.name,
-                                 shape=(num_input,),
+                                 shape=(num_input, 1, 1, 1, 1),
                                  initializer=tf.keras.initializers.constant(1 / num_input),
                                  trainable=True,
                                  dtype=tf.float32)
@@ -69,7 +69,7 @@ class WFF(SeparableConv2D):
 
     def call(self, inputs, **kwargs):
         w = tf.keras.activations.relu(self.w)
-        x = tf.reduce_sum([w[i] * inputs[i] for i in range(len(inputs))], axis=0)
+        x = tf.reduce_sum(tf.multiply(inputs, w), axis=0)
         x = x / (tf.reduce_sum(x) + self.epsilon)
         x = super(WFF, self).call(x)
         return x
