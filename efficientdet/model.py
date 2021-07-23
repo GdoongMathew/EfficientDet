@@ -9,6 +9,8 @@ from tensorflow.keras.layers import MaxPooling2D
 from tensorflow.keras.layers import BatchNormalization
 from tensorflow.keras.layers import SeparableConv2D
 from tensorflow.keras.layers import Concatenate
+from tensorflow.keras.layers import ZeroPadding2D
+from tensorflow.keras.layers import DepthwiseConv2D
 from tensorflow.keras import Model
 from tensorflow.python.keras.utils import tf_utils
 from collections import namedtuple
@@ -26,6 +28,56 @@ _efficientdet_config = {
     'EfficientDetD7': config('EfficientNetB6', 384, 8),
     'EfficientDetD7x': config('EfficientNetB7', 384, 8),
 }
+
+
+# Ported from DeeplabV3+ in https://github.com/bonlime/keras-deeplab-v3-plus/blob/master/model.py
+def SepConv_BN(x,
+               filters,
+               prefix,
+               stride=1,
+               kernel_size=3,
+               rate=1,
+               depth_activation=False,
+               epsilon=1e-3,
+               activation='relu'):
+    """ SepConv with BN between depthwise & pointwise. Optionally add activation after BN
+        Implements right "same" padding for even kernel sizes
+        Args:
+            x: input tensor
+            filters: num of filters in pointwise convolution
+            prefix: prefix before name
+            stride: stride at depthwise conv
+            kernel_size: kernel size for depthwise convolution
+            rate: atrous rate for depthwise convolution
+            depth_activation: flag to use activation between depthwise & poinwise convs
+            epsilon: epsilon to use in BN layer
+            activation:
+    """
+
+    if stride == 1:
+        depth_padding = 'same'
+    else:
+        kernel_size_effective = kernel_size + (kernel_size - 1) * (rate - 1)
+        pad_total = kernel_size_effective - 1
+        pad_beg = pad_total // 2
+        pad_end = pad_total - pad_beg
+        x = ZeroPadding2D((pad_beg, pad_end))(x)
+        depth_padding = 'valid'
+
+    if not depth_activation:
+        x = Activation(tf.nn.relu)(x)
+    x = DepthwiseConv2D((kernel_size, kernel_size), strides=(stride, stride), dilation_rate=(rate, rate),
+                        padding=depth_padding, use_bias=False, name=prefix + '_depthwise')(x)
+    x = BatchNormalization(name=prefix + '_depthwise_BN', epsilon=epsilon)(x)
+    if depth_activation:
+        x = Activation(activation=activation)(x)
+    x = Conv2D(filters, (1, 1), padding='same',
+               use_bias=False, name=prefix + '_pointwise')(x)
+    x = BatchNormalization(name=prefix + '_pointwise_BN', epsilon=epsilon)(x)
+    if depth_activation:
+        x = Activation(activation=activation)(x)
+
+    return x
 
 
 class WFF(SeparableConv2D):
@@ -50,7 +102,8 @@ class WFF(SeparableConv2D):
                 'batch sizes. Got tensors with shapes : ' + str(input_shape))
 
         for i, dim in enumerate(zip(*input_shape)):
-            if i == 0: continue
+            if i == 0:
+                continue
             if dim.count(dim[0]) != len(dim):
                 raise ValueError(f'Tensor shapes should be the same, given {input_shape}.')
 
@@ -164,9 +217,12 @@ def EfficientDet(model_name,
 
     x = segmentation_head(p_layers, _config.BiFPN_W, activation=activation)
 
+    x = SepConv_BN(x, _config.BiFPN_W, 'decoder_conv0', activation=activation)
+    x = SepConv_BN(x, _config.BiFPN_W, 'decoder_conv1', activation=activation)
+
     x = Conv2D(classes, 1, padding='same')(x)
     x = UpSampling2D(4, interpolation='bilinear')(x)
-    x = Activation('softmax')(x)
+    x = Activation('softmax', dtype=tf.float32)(x)
 
     model = Model(inputs=input_x, outputs=x)
     if weights and weights != 'imagenet':
