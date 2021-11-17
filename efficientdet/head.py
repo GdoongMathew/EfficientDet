@@ -147,7 +147,7 @@ def class_head(features,
 
     conv2ds = [conv2d(bias_initializer=tf.zeros_initializer()) for _ in range(repeats)]
     class_out = conv2d(
-        classes * num_anchors,
+        filters=classes * num_anchors,
         bias_initializer=tf.constant_initializer(-np.log((1 - 0.01) / 0.01)),
         name='class_out_conv2d'
     )
