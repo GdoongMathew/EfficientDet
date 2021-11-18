@@ -7,3 +7,8 @@ from .model import EfficientDetD5
 from .model import EfficientDetD6
 from .model import EfficientDetD7
 from .model import EfficientDetD7x
+
+from .model import EfficientNetV2DS
+from .model import EfficientNetV2DM
+from .model import EfficientNetV2DL
+from .model import EfficientNetV2DXL

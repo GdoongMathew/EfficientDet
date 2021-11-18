@@ -11,15 +11,15 @@ from collections import namedtuple
 StructConfig = namedtuple('Config', ('Backbone', 'BiFPN_W', 'BiFPN_D', 'branch'))
 
 _efficientdet_config = {
-    'EfficientDetD0': StructConfig('EfficientNetB0', 64, 3, ()),
-    'EfficientDetD1': StructConfig('EfficientNetB1', 88, 4, ()),
-    'EfficientDetD2': StructConfig('EfficientNetB2', 112, 5, ()),
-    'EfficientDetD3': StructConfig('EfficientNetB3', 160, 6, ()),
+    'EfficientDetD0': StructConfig('EfficientNetB0', 64, 3, ('block3b_add', 'block5c_add', 'block7a_project_bn')),
+    'EfficientDetD1': StructConfig('EfficientNetB1', 88, 4, ('block3c_add', 'block5d_add', 'block7b_add')),
+    'EfficientDetD2': StructConfig('EfficientNetB2', 112, 5, ('block3c_add', 'block5d_add', 'block7b_add')),
+    'EfficientDetD3': StructConfig('EfficientNetB3', 160, 6, ('block3c_add', 'block5e_add', 'block7b_add')),
     'EfficientDetD4': StructConfig('EfficientNetB4', 224, 7, ('block3d_add', 'block5f_add', 'block7b_add')),
-    'EfficientDetD5': StructConfig('EfficientNetB5', 288, 7, ()),
-    'EfficientDetD6': StructConfig('EfficientNetB6', 384, 8, ()),
-    'EfficientDetD7': StructConfig('EfficientNetB6', 384, 8, ()),
-    'EfficientDetD7x': StructConfig('EfficientNetB7', 384, 8, ()),
+    'EfficientDetD5': StructConfig('EfficientNetB5', 288, 7, ('block3e_add', 'block5g_add', 'block7c_add')),
+    'EfficientDetD6': StructConfig('EfficientNetB6', 384, 8, ('block3f_add', 'block5h_add', 'block7c_add')),
+    'EfficientDetD7': StructConfig('EfficientNetB6', 384, 8, ('block3f_add', 'block5h_add', 'block7c_add')),
+    'EfficientDetD7x': StructConfig('EfficientNetB7', 384, 8, ('block3g_add', 'block5j_add', 'block7d_add')),
 
     'EfficientNetV2DS': StructConfig('EfficientNetV2_S', 224, 7,
                                      ('fused_block3d_add', 'normal_block5i_add', 'normal_block6o_add')),
