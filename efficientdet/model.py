@@ -8,26 +8,35 @@ from .head import segmentation_head, box_head, class_head
 
 from collections import namedtuple
 
-StructConfig = namedtuple('Config', ('Backbone', 'BiFPN_W', 'BiFPN_D', 'branch'))
+StructConfig = namedtuple('Config', ('Backbone', 'BiFPN_W', 'BiFPN_D', 'Box_Repeat', 'Anchor_Scale', 'Branch'))
 
 _efficientdet_config = {
-    'EfficientDetD0': StructConfig('EfficientNetB0', 64, 3, ('block3b_add', 'block5c_add', 'block7a_project_bn')),
-    'EfficientDetD1': StructConfig('EfficientNetB1', 88, 4, ('block3c_add', 'block5d_add', 'block7b_add')),
-    'EfficientDetD2': StructConfig('EfficientNetB2', 112, 5, ('block3c_add', 'block5d_add', 'block7b_add')),
-    'EfficientDetD3': StructConfig('EfficientNetB3', 160, 6, ('block3c_add', 'block5e_add', 'block7b_add')),
-    'EfficientDetD4': StructConfig('EfficientNetB4', 224, 7, ('block3d_add', 'block5f_add', 'block7b_add')),
-    'EfficientDetD5': StructConfig('EfficientNetB5', 288, 7, ('block3e_add', 'block5g_add', 'block7c_add')),
-    'EfficientDetD6': StructConfig('EfficientNetB6', 384, 8, ('block3f_add', 'block5h_add', 'block7c_add')),
-    'EfficientDetD7': StructConfig('EfficientNetB6', 384, 8, ('block3f_add', 'block5h_add', 'block7c_add')),
-    'EfficientDetD7x': StructConfig('EfficientNetB7', 384, 8, ('block3g_add', 'block5j_add', 'block7d_add')),
+    'EfficientDetD0': StructConfig('EfficientNetB0', 64, 3, 3, 4.,
+                                   ('block3b_add', 'block5c_add', 'block7a_project_bn')),
+    'EfficientDetD1': StructConfig('EfficientNetB1', 88, 4, 3, 4.,
+                                   ('block3c_add', 'block5d_add', 'block7b_add')),
+    'EfficientDetD2': StructConfig('EfficientNetB2', 112, 5, 3, 4.,
+                                   ('block3c_add', 'block5d_add', 'block7b_add')),
+    'EfficientDetD3': StructConfig('EfficientNetB3', 160, 6, 4, 4.,
+                                   ('block3c_add', 'block5e_add', 'block7b_add')),
+    'EfficientDetD4': StructConfig('EfficientNetB4', 224, 7, 4, 4.,
+                                   ('block3d_add', 'block5f_add', 'block7b_add')),
+    'EfficientDetD5': StructConfig('EfficientNetB5', 288, 7, 4, 4.,
+                                   ('block3e_add', 'block5g_add', 'block7c_add')),
+    'EfficientDetD6': StructConfig('EfficientNetB6', 384, 8, 5, 4.,
+                                   ('block3f_add', 'block5h_add', 'block7c_add')),
+    'EfficientDetD7': StructConfig('EfficientNetB6', 384, 8, 5, 5.,
+                                   ('block3f_add', 'block5h_add', 'block7c_add')),
+    'EfficientDetD7x': StructConfig('EfficientNetB7', 384, 8, 5, 4.,
+                                    ('block3g_add', 'block5j_add', 'block7d_add')),
 
-    'EfficientNetV2DS': StructConfig('EfficientNetV2_S', 224, 7,
+    'EfficientNetV2DS': StructConfig('EfficientNetV2_S', 224, 7, 4, 4.,
                                      ('fused_block3d_add', 'normal_block5i_add', 'normal_block6o_add')),
-    'EfficientNetV2DM': StructConfig('EfficientNetV2_M', 288, 7,
+    'EfficientNetV2DM': StructConfig('EfficientNetV2_M', 288, 7, 4, 4.,
                                      ('fused_block3e_add', 'normal_block5n_add', 'normal_block7e_add')),
-    'EfficientNetV2DL': StructConfig('EfficientNetV2_L', 384, 8,
+    'EfficientNetV2DL': StructConfig('EfficientNetV2_L', 384, 8, 5, 4.,
                                      ('fused_block3g_add', 'normal_block5s_add', 'normal_block7g_add')),
-    'EfficientNetV2DXL': StructConfig('EfficientNetV2_XL', 384, 8,
+    'EfficientNetV2DXL': StructConfig('EfficientNetV2_XL', 384, 8, 5, 4.,
                                       ('fused_block3h_add', 'normal_block5x_add', 'normal_block7h_add')),
 }
 
@@ -84,15 +93,15 @@ def EfficientDet(model_name,
                                                           weights=_imagenet_weight)
 
     # reset channels
-    p3 = backbone_net.get_layer(_config.branch[0]).output
+    p3 = backbone_net.get_layer(_config.Branch[0]).output
     p3 = layers.Conv2D(_config.BiFPN_W, 1, padding='same')(p3)
     p3 = layers.BatchNormalization()(p3)
 
-    p4 = backbone_net.get_layer(_config.branch[1]).output
+    p4 = backbone_net.get_layer(_config.Branch[1]).output
     p4 = layers.Conv2D(_config.BiFPN_W, 1, padding='same')(p4)
     p4 = layers.BatchNormalization()(p4)
 
-    p5 = backbone_net.get_layer(_config.branch[2]).output
+    p5 = backbone_net.get_layer(_config.Branch[2]).output
     p5 = layers.Conv2D(_config.BiFPN_W, 1, padding='same')(p5)
     p5 = layers.BatchNormalization()(p5)
 
@@ -107,8 +116,30 @@ def EfficientDet(model_name,
         p_layers = bifpn_network(p_layers, _config.BiFPN_W, activation=activation)
 
     seg = segmentation_head(p_layers, _config.BiFPN_W, classes, activation=activation, use_conv=True)
-    box = box_head(p_layers, )
-    cls = class_head(p_layers, classes)
+
+    num_anchors = len(aspect_ratios) * num_scales
+
+    box = box_head(p_layers,
+                   num_anchors=num_anchors,
+                   num_filters=_config.BiFPN_W,
+                   repeats=_config.Box_Repeat,
+                   activation=activation,
+                   separable_conv=True)
+    cls = class_head(p_layers,
+                     classes,
+                     num_anchors=num_anchors,
+                     num_filters=_config.BiFPN_W,
+                     activation=activation,
+                     repeats=_config.Box_Repeat,
+                     separable_conv=True,
+                     dropout=0.5)
+    # box_net = BoxNet(_config.BiFPN_W, 4, num_anchors=9, separable_conv=True)
+    # class_net = ClassNet(_config.BiFPN_W, 4, num_classes=classes, num_anchors=9, separable_conv=True)
+    #
+    # cls = [class_net([feature, i]) for i, feature in enumerate(p_layers)]
+    # cls = layers.Concatenate(axis=1, name='classification')(cls)
+    # box = [box_net([feature, i]) for i, feature in enumerate(p_layers)]
+    # box = layers.Concatenate(axis=1, name='regression')(box)
 
     model = Model(inputs=input_x, outputs=[seg, *box, *cls])
     if weights and weights != 'imagenet':
