@@ -82,8 +82,11 @@ def box_head(features,
                 padding='same')
 
     conv2ds = [conv2d() for _ in range(repeats)]
+
+    box_points = 4
+
     box_out = layers.SeparableConv2D(
-        4 * num_anchors,
+        box_points * num_anchors,
         3,
         depth_multiplier=1,
         pointwise_initializer=CONV_KERNEL_INITIALIZER,
@@ -93,7 +96,7 @@ def box_head(features,
         padding='same',
         name='box_out_sepconv2d'
     ) if separable_conv else layers.Conv2D(
-        4 * num_anchors,
+        box_points * num_anchors,
         3,
         kernel_initializer=CONV_KERNEL_INITIALIZER,
         bias_initializer=tf.zeros_initializer(),
@@ -113,6 +116,7 @@ def box_head(features,
                 in_x = layers.Dropout(dropout)(in_x)
 
         in_x = box_out(in_x)
+        in_x = layers.Reshape((-1, box_points * num_anchors))(in_x)
         outputs.append(in_x)
 
     box_model = Model(inputs=inputs, outputs=outputs, name=name)
@@ -163,6 +167,8 @@ def class_head(features,
                 in_x = layers.Dropout(dropout)(in_x)
 
         in_x = class_out(in_x)
+
+        in_x = layers.Reshape((-1, classes * num_anchors))(in_x)
         outputs.append(in_x)
 
     class_model = Model(inputs=inputs, outputs=outputs, name=name)

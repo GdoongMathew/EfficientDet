@@ -94,7 +94,6 @@ def EfficientDet(model_name: str,
 
     lib = efnv2 if 'V2' in _config.Backbone else efn
     backbone_net = lib.__getattribute__(_config.Backbone)(input_tensor=input_x,
-                                                          input_shape=input_shape,
                                                           include_top=False,
                                                           weights=_imagenet_weight)
 
