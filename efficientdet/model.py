@@ -1,10 +1,11 @@
-import tensorflow as tf
 import efficientnet.tfkeras as efn
 import efficientnetv2 as efnv2
 from tensorflow.keras import layers
 from tensorflow.keras import Model
 from .custom_layers import WFF
 from .head import segmentation_head, box_head, class_head
+
+from typing import Union, List, Tuple
 
 from collections import namedtuple
 
@@ -72,15 +73,20 @@ def bifpn_network(features, num_channels, activation='swish'):
     return outputs
 
 
-def EfficientDet(model_name,
-                 input_shape=(1024, 1024, 3),
-                 classes=1000,
-                 weights=None,
-                 activation='swish',
-                 use_p8=False,
-                 aspect_ratios=(1., 2., 0.5),
-                 num_scales=3
+def EfficientDet(model_name: str,
+                 input_shape: Tuple = (1024, 1024, 3),
+                 classes: int = 1000,
+                 weights: Union[str, None] = None,
+                 activation: str = 'swish',
+                 use_p8: bool = False,
+                 aspect_ratios: Tuple = (1., 2., 0.5),
+                 num_scales: int = 3,
+                 heads: Union[List, Tuple, str] = ('object_detection', 'segmentation')
                  ):
+
+    assert 'segmentation' in heads or 'object_detection' in heads, \
+        'At least one of "segmentation" or "object_detection" should be specified.'
+
     _imagenet_weight = weights if weights == 'imagenet' else None
     _config = _efficientdet_config[model_name]
 
@@ -115,33 +121,34 @@ def EfficientDet(model_name,
     for _ in range(_config.BiFPN_D):
         p_layers = bifpn_network(p_layers, _config.BiFPN_W, activation=activation)
 
-    seg = segmentation_head(p_layers, _config.BiFPN_W, classes, activation=activation, use_conv=True)
+    # output heads
+    outputs = []
+    if 'object_detection' in heads:
+        num_anchors = len(aspect_ratios) * num_scales
 
-    num_anchors = len(aspect_ratios) * num_scales
+        cls = class_head(p_layers,
+                         classes,
+                         num_anchors=num_anchors,
+                         num_filters=_config.BiFPN_W,
+                         activation=activation,
+                         repeats=_config.Box_Repeat,
+                         separable_conv=True,
+                         dropout=0.5)
 
-    box = box_head(p_layers,
-                   num_anchors=num_anchors,
-                   num_filters=_config.BiFPN_W,
-                   repeats=_config.Box_Repeat,
-                   activation=activation,
-                   separable_conv=True)
-    cls = class_head(p_layers,
-                     classes,
-                     num_anchors=num_anchors,
-                     num_filters=_config.BiFPN_W,
-                     activation=activation,
-                     repeats=_config.Box_Repeat,
-                     separable_conv=True,
-                     dropout=0.5)
-    # box_net = BoxNet(_config.BiFPN_W, 4, num_anchors=9, separable_conv=True)
-    # class_net = ClassNet(_config.BiFPN_W, 4, num_classes=classes, num_anchors=9, separable_conv=True)
-    #
-    # cls = [class_net([feature, i]) for i, feature in enumerate(p_layers)]
-    # cls = layers.Concatenate(axis=1, name='classification')(cls)
-    # box = [box_net([feature, i]) for i, feature in enumerate(p_layers)]
-    # box = layers.Concatenate(axis=1, name='regression')(box)
+        box = box_head(p_layers,
+                       num_anchors=num_anchors,
+                       num_filters=_config.BiFPN_W,
+                       repeats=_config.Box_Repeat,
+                       activation=activation,
+                       separable_conv=True)
 
-    model = Model(inputs=input_x, outputs=[seg, *box, *cls])
+        outputs.extend([cls, box])
+
+    if 'segmentation' in heads:
+        seg = segmentation_head(p_layers, _config.BiFPN_W, classes, activation=activation, use_conv=True)
+        outputs.append(seg)
+
+    model = Model(inputs=input_x, outputs=outputs, name=model_name)
     if weights and weights != 'imagenet':
         model.load_weights(weights)
 
