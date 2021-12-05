@@ -61,7 +61,8 @@ def box_head(features,
              separable_conv=True,
              activation='swish',
              name='box_head',
-             dropout=None
+             dropout=None,
+             bbox_points=4,
              ):
     inputs = [layers.Input(shape=feature.shape[1:]) for feature in features]
     conv2d = partial(layers.SeparableConv2D,
@@ -83,10 +84,8 @@ def box_head(features,
 
     conv2ds = [conv2d() for _ in range(repeats)]
 
-    box_points = 4
-
     box_out = layers.SeparableConv2D(
-        box_points * num_anchors,
+        bbox_points * num_anchors,
         3,
         depth_multiplier=1,
         pointwise_initializer=CONV_KERNEL_INITIALIZER,
@@ -96,7 +95,7 @@ def box_head(features,
         padding='same',
         name='box_out_sepconv2d'
     ) if separable_conv else layers.Conv2D(
-        box_points * num_anchors,
+        bbox_points * num_anchors,
         3,
         kernel_initializer=CONV_KERNEL_INITIALIZER,
         bias_initializer=tf.zeros_initializer(),
@@ -116,9 +115,11 @@ def box_head(features,
                 in_x = layers.Dropout(dropout)(in_x)
 
         in_x = box_out(in_x)
-        in_x = layers.Reshape((-1, box_points * num_anchors))(in_x)
+        in_x = layers.Reshape((-1, bbox_points * num_anchors))(in_x)
         outputs.append(in_x)
 
+    outputs = layers.Concatenate(axis=1)(outputs)
+    outputs = layers.Reshape((-1, num_anchors, bbox_points))(outputs)
     box_model = Model(inputs=inputs, outputs=outputs, name=name)
     return box_model(features)
 
@@ -171,5 +172,7 @@ def class_head(features,
         in_x = layers.Reshape((-1, classes * num_anchors))(in_x)
         outputs.append(in_x)
 
+    outputs = layers.Concatenate(axis=1)(outputs)
+    outputs = layers.Reshape((-1, num_anchors, classes))(outputs)
     class_model = Model(inputs=inputs, outputs=outputs, name=name)
     return class_model(features)

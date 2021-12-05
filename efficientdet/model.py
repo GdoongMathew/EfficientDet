@@ -1,3 +1,4 @@
+import tensorflow as tf
 import efficientnet.tfkeras as efn
 import efficientnetv2 as efnv2
 from tensorflow.keras import layers
@@ -121,9 +122,10 @@ def EfficientDet(model_name: str,
         p_layers = bifpn_network(p_layers, _config.BiFPN_W, activation=activation)
 
     # output heads
-    outputs = []
+    outputs = {}
     if 'object_detection' in heads:
         num_anchors = len(aspect_ratios) * num_scales
+        bbox_points = 4
 
         cls = class_head(p_layers,
                          classes,
@@ -139,13 +141,21 @@ def EfficientDet(model_name: str,
                        num_filters=_config.BiFPN_W,
                        repeats=_config.Box_Repeat,
                        activation=activation,
-                       separable_conv=True)
+                       separable_conv=True,
+                       bbox_points=bbox_points
+                       )
 
-        outputs.extend([cls, box])
+        obj_out = layers.Concatenate(axis=-1)([cls, box])
+
+        outputs.update({
+            'obj_head': obj_out,
+        })
 
     if 'segmentation' in heads:
         seg = segmentation_head(p_layers, _config.BiFPN_W, classes, activation=activation, use_conv=True)
-        outputs.append(seg)
+        outputs.update({
+            'seg_head': seg
+        })
 
     model = Model(inputs=input_x, outputs=outputs, name=model_name)
     if weights and weights != 'imagenet':
