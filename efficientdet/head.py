@@ -110,7 +110,7 @@ def box_head(features,
             in_x = conv2ds[i](in_x)
             in_x = layers.BatchNormalization()(in_x)
             if activation:
-                in_x = layers.Activation(activation=activation)(in_x)
+                in_x = layers.Activation(activation=activation, dtype=tf.float32)(in_x)
             if dropout:
                 in_x = layers.Dropout(dropout)(in_x)
 
@@ -163,7 +163,7 @@ def class_head(features,
             in_x = conv2ds[i](in_x)
             in_x = layers.BatchNormalization()(in_x)
             if activation:
-                in_x = layers.Activation(activation=activation)(in_x)
+                in_x = layers.Activation(activation=activation, dtype=tf.float32)(in_x)
             if dropout:
                 in_x = layers.Dropout(dropout)(in_x)
 

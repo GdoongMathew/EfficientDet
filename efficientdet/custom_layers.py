@@ -104,3 +104,53 @@ class WFF(layers.SeparableConv2D):
     def get_config(self):
         config = super(WFF, self).get_config()
         return {**config, 'epsilon': self.epsilon}
+
+
+class ClipBbox(layers.Layer):
+    def __init__(self, image_shape, *args, **kwargs):
+        assert isinstance(image_shape, (tuple, list)) and len(image_shape) == 3
+        self.height, self.width, _ = image_shape
+        self.image_shape = image_shape
+        super(ClipBbox, self).__init__(*args, **kwargs)
+
+    def call(self, inputs, *args, **kwargs):
+        """
+        input a denormalized bboxes
+        :param inputs:
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        x1 = tf.clip_by_value(inputs[..., 0], 0, self.width - 1)
+        y1 = tf.clip_by_value(inputs[..., 1], 0, self.height - 1)
+        x2 = tf.clip_by_value(inputs[..., 2], 0, self.width - 1)
+        y2 = tf.clip_by_value(inputs[..., 3], 0, self.height - 1)
+        return tf.stack([x1, y1, x2, y2], axis=-1)
+
+    def get_config(self):
+        config = super(ClipBbox, self).get_config()
+        return {
+            'image_shape': (self.height, self.width, 3),
+            **config
+        }
+
+
+class DenormalizeBbox(layers.Layer):
+    def __init__(self, image_shape, bbox_points=4, *args, **kwargs):
+        self.image_shape = image_shape
+        self.bbox_points = bbox_points
+        super(DenormalizeBbox, self).__init__(*args, **kwargs)
+
+    def call(self, inputs, *args, **kwargs):
+        anchors, inputs = inputs
+        bbox_points = inputs[..., :self.bbox_points]
+        pass
+
+    def get_config(self):
+        config = super(DenormalizeBbox, self).get_config()
+        return {'image_shape': self.image_shape,
+                'bbox_points': self.bbox_points,
+                **config}
+
+    def compute_output_shape(self, input_shape):
+        return input_shape

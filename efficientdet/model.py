@@ -4,6 +4,8 @@ import efficientnetv2 as efnv2
 from tensorflow.keras import layers
 from tensorflow.keras import Model
 from .custom_layers import WFF
+from .custom_layers import ClipBbox
+from .custom_layers import DenormalizeBbox
 from .head import segmentation_head, box_head, class_head
 
 from typing import Union, List, Tuple
@@ -145,10 +147,12 @@ def EfficientDet(model_name: str,
                        bbox_points=bbox_points
                        )
 
-        obj_out = layers.Concatenate(axis=-1)([cls, box])
+        box = ClipBbox(input_shape)(box)
+
+        obj_out = layers.Concatenate(axis=-1, name='object_model')([box, cls])
 
         outputs.update({
-            'obj_head': obj_out,
+            'object_head': obj_out,
         })
 
     if 'segmentation' in heads:
