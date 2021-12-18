@@ -13,6 +13,7 @@ from typing import Union, List, Tuple
 from collections import namedtuple
 
 StructConfig = namedtuple('Config', ('Backbone', 'BiFPN_W', 'BiFPN_D', 'Box_Repeat', 'Anchor_Scale', 'Branch'))
+AnchorsConfig = namedtuple('Anchor', ('Size', 'Ratios', 'Scales', 'Strides'))
 
 _efficientdet_config = {
     'EfficientDetD0': StructConfig('EfficientNetB0', 64, 3, 3, 4.,
@@ -43,6 +44,13 @@ _efficientdet_config = {
     'EfficientNetV2DXL': StructConfig('EfficientNetV2_XL', 384, 8, 5, 4.,
                                       ('fused_block3h_add', 'normal_block5x_add', 'normal_block7h_add')),
 }
+
+default_anchors = AnchorsConfig(
+    (32, 64, 128, 256, 512),
+    (8, 16, 32, 64, 128),
+    (1, 0.5, 2),
+    (2 ** 0, 2 ** (1.0 / 3.0), 2 ** (2.0 / 3.0))
+)
 
 
 def bifpn_network(features, num_channels, activation='swish'):
@@ -84,6 +92,7 @@ def EfficientDet(model_name: str,
                  use_p8: bool = False,
                  aspect_ratios: Tuple = (1., 2., 0.5),
                  num_scales: int = 3,
+                 anchors_config: AnchorsConfig = default_anchors,
                  heads: Union[List, Tuple, str] = ('object_detection', 'segmentation')
                  ):
 
