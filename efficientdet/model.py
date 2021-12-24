@@ -13,7 +13,7 @@ from typing import Union, List, Tuple
 from collections import namedtuple
 
 StructConfig = namedtuple('Config', ('Backbone', 'BiFPN_W', 'BiFPN_D', 'Box_Repeat', 'Anchor_Scale', 'Branch'))
-AnchorsConfig = namedtuple('Anchor', ('Size', 'Ratios', 'Scales', 'Strides'))
+AnchorsConfig = namedtuple('Anchor', ('Sizes', 'Strides', 'Ratios', 'Scales'))
 
 _efficientdet_config = {
     'EfficientDetD0': StructConfig('EfficientNetB0', 64, 3, 3, 4.,

@@ -1,6 +1,9 @@
+import numpy as np
 import tensorflow as tf
 from tensorflow.keras import layers
 from tensorflow.python.keras.utils import tf_utils
+
+from typing import Union, Tuple
 
 
 # Ported from DeeplabV3+ in https://github.com/bonlime/keras-deeplab-v3-plus/blob/master/model.py
@@ -135,9 +138,38 @@ class ClipBbox(layers.Layer):
         }
 
 
+def _generate_anchors(size: int, ratios: Tuple[float], scales: Tuple[float]):
+    """
+    from xuannianz's implementation of generate_anchors.
+    :param size:
+    :param ratios:
+    :param scales:
+    :return:
+    """
+    num_anchors = len(ratios) * len(scales)
+    anchors = np.zeros((num_anchors, 4), dtype=np.float32)
+    anchors[:, 2:] = size * np.tile(np.repeat(scales, len(ratios))[None], (2, 1)).T
+
+    area = anchors[:, 2] * anchors[:, 3]
+    anchors[:, 2] = np.sqrt(area / np.tile(ratios, len(scales)))
+    anchors[:, 3] = anchors[:, 2] * np.tile(ratios, len(scales))
+
+    anchors[:, 0::2] -= np.tile(anchors[:, 2] * 0.5, (2, 1)).T
+    anchors[:, 1::2] -= np.tile(anchors[:, 3] * 0.5, (2, 1)).T
+    return anchors
+
+
+
+
 class DenormalizeBbox(layers.Layer):
-    def __init__(self, image_shape, bbox_points=4, *args, **kwargs):
-        self.image_shape = image_shape
+    def __init__(self,
+                 feature_maps_shape,
+                 bbox_points=4,
+                 anchor_sizes=(32, 64, 128, 256, 512),
+                 anchor_ratios=(1, 0.5, 2),
+                 anchor_scales=(2 ** 0, 2 ** (1. / 3.), 2 ** (2. / 3.)),
+                 *args, **kwargs):
+        self.feature_maps_shape = feature_maps_shape
         self.bbox_points = bbox_points
         super(DenormalizeBbox, self).__init__(*args, **kwargs)
 
@@ -148,9 +180,11 @@ class DenormalizeBbox(layers.Layer):
 
     def get_config(self):
         config = super(DenormalizeBbox, self).get_config()
-        return {'image_shape': self.image_shape,
+        return {'feature_maps_shape': self.feature_maps_shape,
                 'bbox_points': self.bbox_points,
+                'anchor_ratios': self.anchor_ratios,
+                'anchor_scales': self.anchor_scales,
                 **config}
 
     def compute_output_shape(self, input_shape):
-        return input_shape
+        return input_shape[-1]
