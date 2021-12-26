@@ -167,8 +167,8 @@ def _shift_anchors(anchors, stride, feature_map_shape):
     :param feature_map_shape:
     :return:
     """
-    shift_x = (np.arange(0, feature_map_shape[1]) + 0.5) * stride
-    shift_y = (np.arange(0, feature_map_shape[0]) + 0.5) * stride
+    shift_x = (np.arange(0, feature_map_shape[2]) + 0.5) * stride
+    shift_y = (np.arange(0, feature_map_shape[1]) + 0.5) * stride
 
     shift_x, shift_y = np.meshgrid(shift_x, shift_y)
     shifts = np.vstack((
@@ -194,9 +194,9 @@ class DenormalizeBbox(layers.Layer):
         self.bbox_points = bbox_points
 
         self.anchors = np.zeros((0, 4), dtype=np.float32)
-        for anchor_size in anchor_sizes:
+        for anchor_size, anchor_stride, feature_map_shape in zip(anchor_sizes, anchor_strides, feature_maps_shape):
             _anchors = _generate_anchors(anchor_size, anchor_ratios, anchor_scales)
-            _anchors = _shift_anchors(_anchors, anchor_strides, feature_maps_shape)
+            _anchors = _shift_anchors(_anchors, anchor_stride, feature_map_shape)
             self.anchors = np.append(self.anchors, _anchors, axis=0)
 
         self.anchors = np.expand_dims(self.anchors, axis=0)
