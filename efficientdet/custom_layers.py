@@ -3,7 +3,7 @@ import tensorflow as tf
 from tensorflow.keras import layers
 from tensorflow.python.keras.utils import tf_utils
 
-from typing import Union, Tuple
+from typing import Tuple
 
 
 # Ported from DeeplabV3+ in https://github.com/bonlime/keras-deeplab-v3-plus/blob/master/model.py
@@ -159,6 +159,27 @@ def _generate_anchors(size: int, ratios: Tuple[float], scales: Tuple[float]):
     return anchors
 
 
+def _shift_anchors(anchors, stride, feature_map_shape):
+    """
+    produce shifted anchors based on feature_map shape and stride
+    :param anchors:
+    :param stride:
+    :param feature_map_shape:
+    :return:
+    """
+    shift_x = (np.arange(0, feature_map_shape[1]) + 0.5) * stride
+    shift_y = (np.arange(0, feature_map_shape[0]) + 0.5) * stride
+
+    shift_x, shift_y = np.meshgrid(shift_x, shift_y)
+    shifts = np.vstack((
+        shift_x.ravel(), shift_y.ravel(), shift_x.ravel(), shift_y.ravel()
+    )).T
+
+    A = anchors.shape[0]
+    K = shifts.shape[0]
+    final_anchors = (anchors.reshape((1, A, 4)) + shifts.reshape((1, K, 4)).transpose((1, 0, 2)))
+    final_anchors = final_anchors.reshape((K * A, 4))
+    return final_anchors
 
 
 class DenormalizeBbox(layers.Layer):
@@ -166,17 +187,39 @@ class DenormalizeBbox(layers.Layer):
                  feature_maps_shape,
                  bbox_points=4,
                  anchor_sizes=(32, 64, 128, 256, 512),
+                 anchor_strides=(8, 16, 32, 64, 128),
                  anchor_ratios=(1, 0.5, 2),
                  anchor_scales=(2 ** 0, 2 ** (1. / 3.), 2 ** (2. / 3.)),
                  *args, **kwargs):
-        self.feature_maps_shape = feature_maps_shape
         self.bbox_points = bbox_points
+
+        self.anchors = np.zeros((0, 4), dtype=np.float32)
+        for anchor_size in anchor_sizes:
+            _anchors = _generate_anchors(anchor_size, anchor_ratios, anchor_scales)
+            _anchors = _shift_anchors(_anchors, anchor_strides, feature_maps_shape)
+            self.anchors = np.append(self.anchors, _anchors, axis=0)
+
+        self.anchors = np.expand_dims(self.anchors, axis=0)
         super(DenormalizeBbox, self).__init__(*args, **kwargs)
 
     def call(self, inputs, *args, **kwargs):
-        anchors, inputs = inputs
-        bbox_points = inputs[..., :self.bbox_points]
-        pass
+        bbox_deltas = inputs[..., :self.bbox_points]
+
+        cxa = (self.anchors[..., 0] + self.anchors[..., 2]) / 2
+        cya = (self.anchors[..., 1] + self.anchors[..., 3]) / 2
+        wa = self.anchors[..., 2] - self.anchors[..., 0]
+        ha = self.anchors[..., 3] - self.anchors[..., 1]
+        ty, tx, th, tw = bbox_deltas[..., 0], bbox_deltas[..., 1], bbox_deltas[..., 2], bbox_deltas[..., 3]
+
+        w = tf.exp(tw) * wa
+        h = tf.exp(th) * ha
+        cy = ty * ha + cya
+        cx = tx * wa + cxa
+        ymin = cy - h / 2.
+        xmin = cx - w / 2.
+        ymax = cy + h / 2.
+        xmax = cx + w / 2.
+        return tf.stack([xmin, ymin, xmax, ymax], axis=-1)
 
     def get_config(self):
         config = super(DenormalizeBbox, self).get_config()
