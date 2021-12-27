@@ -1,5 +1,4 @@
-import tensorflow as tf
-import efficientnet.tfkeras as efn
+from tensorflow.keras.applications import efficientnet as efn
 import efficientnetv2 as efnv2
 from tensorflow.keras import layers
 from tensorflow.keras import Model
