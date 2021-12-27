@@ -284,7 +284,7 @@ def EfficientDetD7x(input_shape=(512, 512, 3),
                         **kwargs)
 
 
-def EfficientNetV2DS(input_shape=(512, 512, 3),
+def EfficientDetV2DS(input_shape=(512, 512, 3),
                      classes=1000,
                      weights=None,
                      **kwargs):
@@ -295,7 +295,7 @@ def EfficientNetV2DS(input_shape=(512, 512, 3),
                         **kwargs)
 
 
-def EfficientNetV2DM(input_shape=(512, 512, 3),
+def EfficientDetV2DM(input_shape=(512, 512, 3),
                      classes=1000,
                      weights=None,
                      **kwargs):
@@ -306,7 +306,7 @@ def EfficientNetV2DM(input_shape=(512, 512, 3),
                         **kwargs)
 
 
-def EfficientNetV2DL(input_shape=(512, 512, 3),
+def EfficientDetV2DL(input_shape=(512, 512, 3),
                      classes=1000,
                      weights=None,
                      **kwargs):
@@ -317,7 +317,7 @@ def EfficientNetV2DL(input_shape=(512, 512, 3),
                         **kwargs)
 
 
-def EfficientNetV2DXL(input_shape=(512, 512, 3),
+def EfficientDetV2DXL(input_shape=(512, 512, 3),
                       classes=1000,
                       weights=None,
                       **kwargs):
