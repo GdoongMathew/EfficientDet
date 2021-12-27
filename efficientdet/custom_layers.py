@@ -178,7 +178,6 @@ def _shift_anchors(anchors, stride, feature_map_shape):
     A = anchors.shape[0]
     K = shifts.shape[0]
     final_anchors = (anchors.reshape((1, A, 4)) + shifts.reshape((1, K, 4)).transpose((1, 0, 2)))
-    final_anchors = final_anchors.reshape((K * A, 4))
     return final_anchors
 
 
@@ -193,7 +192,7 @@ class DenormalizeBbox(layers.Layer):
                  *args, **kwargs):
         self.bbox_points = bbox_points
 
-        self.anchors = np.zeros((0, 4), dtype=np.float32)
+        self.anchors = np.zeros((0, 9, 4), dtype=np.float32)
         for anchor_size, anchor_stride, feature_map_shape in zip(anchor_sizes, anchor_strides, feature_maps_shape):
             _anchors = _generate_anchors(anchor_size, anchor_ratios, anchor_scales)
             _anchors = _shift_anchors(_anchors, anchor_stride, feature_map_shape)

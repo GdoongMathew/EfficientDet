@@ -46,8 +46,8 @@ _efficientdet_config = {
 }
 
 default_anchors = AnchorsConfig(
-    (32, 64, 128, 256, 512),
-    (8, 16, 32, 64, 128),
+    (512, 256, 128, 64, 32),
+    (128, 64, 32, 16, 8),
     (1, 0.5, 2),
     (2 ** 0, 2 ** (1.0 / 3.0), 2 ** (2.0 / 3.0))
 )
@@ -155,6 +155,14 @@ def EfficientDet(model_name: str,
                        separable_conv=True,
                        bbox_points=bbox_points
                        )
+
+        box = DenormalizeBbox([feature_map.shape for feature_map in p_layers],
+                              bbox_points=bbox_points,
+                              anchor_sizes=anchors_config.Sizes,
+                              anchor_strides=anchors_config.Strides,
+                              anchor_ratios=anchors_config.Ratios,
+                              anchor_scales=anchors_config.Scales,
+                              )(box)
 
         box = ClipBbox(input_shape)(box)
 
